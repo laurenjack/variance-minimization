@@ -6,13 +6,16 @@ m = 2
 epochs = 30
 sizes = [784, 30, 10]
 lr = 0.01
-batch_size = 50
-val_n = 10000
-acc_sample_size = 1000
+batch_size = 10
+n = 100
+val_n = 50
+acc_sample_size = 25
 
 
-def split_data(full_images, full_labels):
-    n, num_pixels = full_images.shape
+def split_data(full_images, full_labels, n=None):
+    n_data, num_pixels = full_images.shape
+    if n is None:
+        n = n_data
     assert val_n < n
     train_n = n - val_n
     assert train_n % m == 0
@@ -86,7 +89,7 @@ def accuracy(ws, x, y):
 
 # Prepare the data for training
 full_images, full_labels = mnist.get_train()
-train_x, train_y, train_y_hot, val_x, val_y = split_data(full_images, full_labels)
+train_x, train_y, train_y_hot, val_x, val_y = split_data(full_images, full_labels, n=n)
 _, n, d = train_x.shape
 _, n_val, _ = val_x.shape
 train_indices = np.arange(n)
