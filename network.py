@@ -1,15 +1,16 @@
 import numpy as np
 import mnist
+import data_generator
 import splitter
 
-num_classes = 10
-epochs = 30
-sizes = [784, 30, 10]
-lr = 0.01
+
+epochs = 15
+sizes = [50, 50, 2]  # [784, 30, 10]
+lr = 0.3
 batch_size = 10
-n = 80
-val_n = 40
-acc_sample_size = 20
+n = 1000
+val_n = 200
+acc_sample_size = 200
 
 
 def create_weights(sizes):
@@ -53,7 +54,8 @@ def accuracy(ws, x, y):
 
 
 # Prepare the data for training
-full_images, full_labels = mnist.get_train()
+# full_images, full_labels = mnist.get_train()
+full_images, full_labels = data_generator.single_relevant(1000, 50, 0.5, 0.8, 0.5)
 # num_pixels = full_images.shape[1]
 train_x, train_y, train_y_hot, val_x, val_y = splitter.split_data(full_images, full_labels, val_n, n=n)
 _, n, d = train_x.shape
