@@ -1,50 +1,15 @@
 import numpy as np
 import mnist
+import splitter
 
 num_classes = 10
-m = 2
 epochs = 30
 sizes = [784, 30, 10]
 lr = 0.01
 batch_size = 10
-n = 100
-val_n = 50
-acc_sample_size = 25
-
-
-def split_data(full_images, full_labels, n=None):
-    n_data, num_pixels = full_images.shape
-    if n is None:
-        n = n_data
-    assert val_n < n
-    train_n = n - val_n
-    assert train_n % m == 0
-
-    # Adjust now to the number of models
-    train_n_per_m = train_n // m
-
-    # Shuffle the data for two purposes:
-    # 1) Randomize what is in training and randomize what is in validation
-    # 2) Randomize which model gets which training examples
-    indices = np.arange(n)
-    np.random.shuffle(indices)
-    full_images = full_images[indices]
-    full_labels = full_labels[indices]
-    train_images, val_images = full_images[:train_n], full_images[train_n:]
-    train_labels, val_labels = full_labels[:train_n], full_labels[train_n:]
-    # One hot encoding of the labels
-    train_labels_hot = np.zeros((train_n, num_classes))
-    train_indices = np.arange(train_n)
-    train_labels_hot[train_indices, train_labels] = 1.0
-
-    # Reshape adding the model dimension, the validation data is applied to both models so its model dimension is just
-    # 1 rather than m
-    train_x = train_images.reshape(m, train_n_per_m, num_pixels)
-    train_y = train_labels.reshape(m, train_n_per_m)
-    train_y_hot = train_labels_hot.reshape(m, train_n_per_m, num_classes)
-    val_x = val_images.reshape(1, val_n, num_pixels)
-    val_y = val_labels.reshape(1, val_n)
-    return train_x, train_y, train_y_hot, val_x, val_y
+n = 80
+val_n = 40
+acc_sample_size = 20
 
 
 def create_weights(sizes):
@@ -56,7 +21,7 @@ def create_weights(sizes):
 
 
 def weight_init(d_in, d_out):
-    return np.random.randn(m, d_in, d_out) / d_in ** 0.5
+    return np.random.randn(2, d_in, d_out) / d_in ** 0.5
 
 
 def feed_forward(ws, x):
@@ -89,7 +54,8 @@ def accuracy(ws, x, y):
 
 # Prepare the data for training
 full_images, full_labels = mnist.get_train()
-train_x, train_y, train_y_hot, val_x, val_y = split_data(full_images, full_labels, n=n)
+# num_pixels = full_images.shape[1]
+train_x, train_y, train_y_hot, val_x, val_y = splitter.split_data(full_images, full_labels, val_n, n=n)
 _, n, d = train_x.shape
 _, n_val, _ = val_x.shape
 train_indices = np.arange(n)
@@ -118,13 +84,32 @@ for e in range(epochs):
         val_batch = np.random.choice(val_indices, batch_size, replace=False)
         x_val = val_x[:, val_batch, :]
 
-        activations = feed_forward(ws, x)
-        delta = activations.pop() - y_hot  # (m, batch_size, d_out)
+        bias_activations = feed_forward(ws, x)
+        ab = bias_activations.pop()
+        bias_delta = ab - y_hot  # (m, batch_size, d_out)
 
-        # Where a has shape (m, batch_size, d_in) and w has shape (m, d_in, d_out)
-        for a, w in zip(activations[::-1], ws[::-1]):
-            dw = np.matmul(a.transpose(0, 2, 1), delta)
-            da = np.where(a > 0, 1.0, 0.0)  # (m, batch_size, d_in)
-            delta = np.matmul(delta, w.transpose(0, 2, 1)) * da
+        var_activations = feed_forward(ws, x_val)
+        av = var_activations.pop()
+        var_delta = 0.5 * np.abs(av[0] - av[1])  # (batch_size, d_out) where d_out == num_classes
+        var_delta = np.array([var_delta, var_delta])  # (2, batch_size, d_out)
+
+        # Where ab has shape (2, batch_size, d_in),  and w has shape (2, d_in, d_out)
+        for ab, av, w in zip(bias_activations[::-1], var_activations[::-1], ws[::-1]):
+            # Bias back-prop
+            dw = np.matmul(ab.transpose(0, 2, 1), bias_delta) / batch_size
+            da = np.where(ab > 0, 1.0, 0.0)  # (m, batch_size, d_in)
+            bias_delta = np.matmul(bias_delta, w.transpose(0, 2, 1)) * da
             w -= lr * dw
+
+            # Variance back-prop
+            _, d_in, d_out = w.shape
+            aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
+            aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
+            aw_delta = np.abs(aw_with_grad[0] - aw_with_grad[1])  # (batch_size, d_int, d_out)
+            dc = np.sum(aw_delta, axis=0).reshape(1, d_in, d_out) / batch_size
+            w_mag = np.sum(w ** 2, axis=0).reshape(1, d_in, d_out)
+            dw_var = dc * w / w_mag  # (2, d_in, d_out)
+            da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
+            var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
+
 
