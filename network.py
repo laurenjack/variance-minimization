@@ -5,7 +5,7 @@ import splitter
 
 
 epochs = 15
-sizes = [50, 50, 2]  # [784, 30, 10]
+sizes = [100, 100, 2]  # [784, 30, 10]
 lr = 0.3
 batch_size = 10
 n = 1000
@@ -55,7 +55,7 @@ def accuracy(ws, x, y):
 
 # Prepare the data for training
 # full_images, full_labels = mnist.get_train()
-full_images, full_labels = data_generator.single_relevant(1000, 50, 0.5, 0.8, 0.5)
+full_images, full_labels = data_generator.single_relevant(1000, 100, 0.1, 0.8, 0.5)
 # num_pixels = full_images.shape[1]
 train_x, train_y, train_y_hot, val_x, val_y = splitter.split_data(full_images, full_labels, val_n, n=n)
 _, n, d = train_x.shape
