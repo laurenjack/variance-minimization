@@ -7,7 +7,7 @@ import splitter
 epochs = 100
 sizes = [20, 2]  # [784, 30, 10]
 lr = 0.3
-batch_size = 10
+batch_size = 20
 n = 320
 val_n = 160
 acc_sample_size = 80
@@ -104,17 +104,18 @@ for e in range(epochs):
 
             # Variance back-prop
             _, d_in, d_out = w.shape
+            var_delta *= 50.0
             aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
-            aw_delta = aw[0] - aw[1]  # (batch_size, d_int, d_out)
-            grad = np.abs(aw_delta * var_delta[0].reshape(batch_size, 1, d_out))
-            # aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
-            # aw_delta = np.abs(aw_with_grad[0] - aw_with_grad[1])  # (batch_size, d_int, d_out)
+            aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
+            grad = np.abs(aw_with_grad[0] - aw_with_grad[1])
+            # aw_delta = aw[0] - aw[1]  # (batch_size, d_int, d_out)
+            # grad = np.abs(aw_delta.reshape(1, batch_size, d_in, d_out) * var_delta[0].reshape(batch_size, 1, d_out))
             dc = np.sum(grad, axis=0).reshape(1, d_in, d_out) / batch_size
             w_mag = np.sum(w ** 2, axis=0).reshape(1, d_in, d_out) ** 0.5
             dw_var = dc * w / w_mag  # (2, d_in, d_out)
             da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
             var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
 
-            w -= lr * (1.0 * dw + 50.0 * dw_var)   #  5.0 * w / batch_size
+            w -= lr * (1.0 * dw + 1.0 * dw_var)   #  5.0 * w / batch_size
 
 # print(ws)
