@@ -76,6 +76,16 @@ for e in range(epochs):
     print(e, "train acc:", train_acc, "val_acc", val_acc)
 
     np.random.shuffle(train_indices)
+
+    # Adam
+    t = 1
+    alpha = 0.1
+    b1 = 0.9
+    b2 = 0.999
+    epsilon = 0.00000001
+    mt = 0.0
+    vt = 0.0
+
     # Create the batches
     for i in range(0, n, batch_size):
 
@@ -104,7 +114,7 @@ for e in range(epochs):
 
             # Variance back-prop
             _, d_in, d_out = w.shape
-            var_delta *= 50.0
+            var_delta *= 10.0
             aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
             aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
             grad = np.abs(aw_with_grad[0] - aw_with_grad[1])
@@ -115,7 +125,17 @@ for e in range(epochs):
             dw_var = dc * w / w_mag  # (2, d_in, d_out)
             da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
             var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
+            g = 1.0 * dw + 1.0 * dw_var
 
-            w -= lr * (1.0 * dw + 1.0 * dw_var)   #  5.0 * w / batch_size
+            # Adam
+            mt = b1 * mt + (1 - b1) * g
+            mt /= 1 - b1 ** t
+            vt = b2 * vt + (1 - b2) * g ** 2
+            vt /= 1 - b2 ** t
+            w -= alpha * mt / (vt ** 0.5 + epsilon)
+            t += 1
+
+            # SGD
+            # w -= lr * g
 
 # print(ws)
