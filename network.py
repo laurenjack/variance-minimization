@@ -92,7 +92,7 @@ for e in range(epochs):
 
         var_activations = feed_forward(ws, x_val)
         av = var_activations.pop()
-        var_delta = 0.5 * np.abs(av[0] - av[1])  # (batch_size, d_out) where d_out == num_classes
+        var_delta = 0.5 * (av[0] - av[1])  # (batch_size, d_out) where d_out == num_classes
         var_delta = np.array([var_delta, var_delta])  # (2, batch_size, d_out)
 
         # Where ab has shape (2, batch_size, d_in),  and w has shape (2, d_in, d_out)
@@ -105,8 +105,8 @@ for e in range(epochs):
             # Variance back-prop
             _, d_in, d_out = w.shape
             aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
-            aw_delta = np.abs(aw[0] - aw[1])  # (batch_size, d_int, d_out)
-            grad = aw_delta * var_delta[0].reshape(batch_size, 1, d_out)
+            aw_delta = aw[0] - aw[1]  # (batch_size, d_int, d_out)
+            grad = np.abs(aw_delta * var_delta[0].reshape(batch_size, 1, d_out))
             # aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
             # aw_delta = np.abs(aw_with_grad[0] - aw_with_grad[1])  # (batch_size, d_int, d_out)
             dc = np.sum(grad, axis=0).reshape(1, d_in, d_out) / batch_size
@@ -115,6 +115,6 @@ for e in range(epochs):
             da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
             var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
 
-            w -= lr * (1.0 * dw + 50.0 * dw_var )   #  5.0 * w / batch_size
+            w -= lr * (1.0 * dw + 50.0 * dw_var)   #  5.0 * w / batch_size
 
 # print(ws)
