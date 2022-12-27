@@ -4,13 +4,13 @@ import data_generator
 import splitter
 
 
-epochs = 15
-sizes = [100, 100, 2]  # [784, 30, 10]
+epochs = 100
+sizes = [20, 2]  # [784, 30, 10]
 lr = 0.3
 batch_size = 10
-n = 1000
-val_n = 200
-acc_sample_size = 200
+n = 320
+val_n = 160
+acc_sample_size = 80
 
 
 def create_weights(sizes):
@@ -55,7 +55,7 @@ def accuracy(ws, x, y):
 
 # Prepare the data for training
 # full_images, full_labels = mnist.get_train()
-full_images, full_labels = data_generator.single_relevant(1000, 100, 0.1, 0.8, 0.5)
+full_images, full_labels = data_generator.single_relevant(320, 20, 0.1, 0.9, 0.5)
 # num_pixels = full_images.shape[1]
 train_x, train_y, train_y_hot, val_x, val_y = splitter.split_data(full_images, full_labels, val_n, n=n)
 _, n, d = train_x.shape
@@ -101,17 +101,20 @@ for e in range(epochs):
             dw = np.matmul(ab.transpose(0, 2, 1), bias_delta) / batch_size
             da = np.where(ab > 0, 1.0, 0.0)  # (m, batch_size, d_in)
             bias_delta = np.matmul(bias_delta, w.transpose(0, 2, 1)) * da
-            w -= lr * dw
 
             # Variance back-prop
             _, d_in, d_out = w.shape
             aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
-            aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
-            aw_delta = np.abs(aw_with_grad[0] - aw_with_grad[1])  # (batch_size, d_int, d_out)
-            dc = np.sum(aw_delta, axis=0).reshape(1, d_in, d_out) / batch_size
-            w_mag = np.sum(w ** 2, axis=0).reshape(1, d_in, d_out)
+            aw_delta = np.abs(aw[0] - aw[1])  # (batch_size, d_int, d_out)
+            grad = aw_delta * var_delta[0].reshape(batch_size, 1, d_out)
+            # aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
+            # aw_delta = np.abs(aw_with_grad[0] - aw_with_grad[1])  # (batch_size, d_int, d_out)
+            dc = np.sum(grad, axis=0).reshape(1, d_in, d_out) / batch_size
+            w_mag = np.sum(w ** 2, axis=0).reshape(1, d_in, d_out) ** 0.5
             dw_var = dc * w / w_mag  # (2, d_in, d_out)
             da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
             var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
 
+            w -= lr * (1.0 * dw + 50.0 * dw_var )   #  5.0 * w / batch_size
 
+# print(ws)
