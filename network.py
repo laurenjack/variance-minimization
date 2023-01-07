@@ -2,10 +2,11 @@ import numpy as np
 import mnist
 import data_generator
 import splitter
+from scipy.stats import norm
 
 
 epochs = 100
-sizes = [20, 2]  # [784, 30, 10]
+sizes = [40, 2]  # [784, 30, 10]
 lr = 0.3
 batch_size = 20
 n = 320
@@ -22,7 +23,9 @@ def create_weights(sizes):
 
 
 def weight_init(d_in, d_out):
-    return np.random.randn(2, d_in, d_out) / d_in ** 0.5
+    the_same = np.random.randn(d_in, d_out) / d_in ** 0.5
+    return np.array([the_same, the_same])
+    # return np.random.randn(2, d_in, d_out) / d_in ** 0.5
 
 
 def feed_forward(ws, x):
@@ -55,7 +58,7 @@ def accuracy(ws, x, y):
 
 # Prepare the data for training
 # full_images, full_labels = mnist.get_train()
-full_images, full_labels = data_generator.single_relevant(320, 20, 0.5, 0.8, 0.5)
+full_images, full_labels = data_generator.single_relevant(320, 40, 0.5, 0.8, 0.5)
 # num_pixels = full_images.shape[1]
 train_x, train_y, train_y_hot, val_x, val_y = splitter.split_data(full_images, full_labels, val_n, n=n)
 _, n, d = train_x.shape
@@ -66,6 +69,14 @@ val_indices = np.arange(n_val)
 # Create the network
 ws = create_weights(sizes)
 
+# Adam
+t = 1
+alpha = 0.01
+b1 = 0.9
+b2 = 0.999
+epsilon = 0.00000001
+mt = [np.zeros(w.shape) for w in ws]
+vt = [np.zeros(w.shape) for w in ws]
 
 for e in range(epochs):
     # Sample each set to evaluate accuracy
@@ -76,15 +87,6 @@ for e in range(epochs):
     print(e, "train acc:", train_acc, "val_acc", val_acc)
 
     np.random.shuffle(train_indices)
-
-    # Adam
-    t = 1
-    alpha = 0.1
-    b1 = 0.9
-    b2 = 0.999
-    epsilon = 0.00000001
-    mt = [np.zeros(w.shape) for w in ws]
-    vt = [np.zeros(w.shape) for w in ws]
 
     # Create the batches
     for i in range(0, n, batch_size):
@@ -125,17 +127,21 @@ for e in range(epochs):
             dw_var = dc * w / w_mag  # (2, d_in, d_out)
             da_var = np.where(av > 0, 1.0, 0.0)  # (2, batch_size, d_in)
             var_delta = np.matmul(var_delta, w.transpose(0, 2, 1)) * da_var  # (2, batch_size, d_in)
-            g = 1.0 * dw + 1.0 * dw_var
+
+            z_value = w / (np.abs(w[0] - w[1]) * 2 ** 0.5 + epsilon).reshape(1, d_in, d_out)
+            p_value = norm.cdf(np.abs(z_value))
+            g = 1.0 * dw + (1 - p_value) * w  # + 10.0 * dw_var
 
             # Adam
             mt[l] = b1 * mt[l] + (1 - b1) * g
-            mt[l] /= 1 - b1 ** t
+            mt_hat = mt[l] / (1 - b1 ** t)
             vt[l] = b2 * vt[l] + (1 - b2) * g ** 2
-            vt[l] /= 1 - b2 ** t
-            w -= alpha * mt[l] / (vt[l] ** 0.5 + epsilon)
+            vt_hat = vt[l] / (1 - b2 ** t)
+
+            w -= alpha * mt_hat / (vt_hat ** 0.5 + epsilon)
             t += 1
 
             # SGD
             # w -= lr * g
 
-# print(ws)
+print(ws)
