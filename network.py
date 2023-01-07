@@ -114,7 +114,7 @@ for e in range(epochs):
 
             # Variance back-prop
             _, d_in, d_out = w.shape
-            var_delta *= 10.0
+            var_delta *= 1.0
             aw = av.reshape(2, batch_size, d_in, 1) * w.reshape(2, 1, d_in, d_out)
             aw_with_grad = aw * var_delta.reshape(2, batch_size, 1, d_out)
             grad = aw_with_grad[0] - aw_with_grad[1]
